@@ -136,8 +136,8 @@ class TemporalSelfAttention(BaseModule):
                 spatial_shapes=None,
                 level_start_index=None,
                 flag='decoder',
-
-                **kwargs):
+                key_pos=None,
+                attn_mask=None):
         """Forward Function of MultiScaleDeformAttention.
 
         Args:
@@ -237,7 +237,7 @@ class TemporalSelfAttention(BaseModule):
             raise ValueError(
                 f'Last dim of reference_points must be'
                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
-        if torch.cuda.is_available() and value.is_cuda:
+        '''if torch.cuda.is_available() and value.is_cuda:
 
             # using fp16 deformable attention is unstable because it performs many sum operations
             if value.dtype == torch.float16:
@@ -247,10 +247,14 @@ class TemporalSelfAttention(BaseModule):
             output = MultiScaleDeformableAttnFunction.apply(
                 value, spatial_shapes, level_start_index, sampling_locations,
                 attention_weights, self.im2col_step)
-        else:
-
-            output = multi_scale_deformable_attn_pytorch(
-                value, spatial_shapes, sampling_locations, attention_weights)
+            # attn = nn.MultiheadAttention(self.embed_dims, self.num_heads)
+            # output, _ = attn(query, key, value)
+        else:'''
+        #print('temp completed')
+        #import pdb
+        #pdb.set_trace()
+        output = multi_scale_deformable_attn_pytorch(
+            value, spatial_shapes, sampling_locations, attention_weights)
 
         # output shape (bs*num_bev_queue, num_query, embed_dims)
         # (bs*num_bev_queue, num_query, embed_dims)-> (num_query, embed_dims, bs*num_bev_queue)

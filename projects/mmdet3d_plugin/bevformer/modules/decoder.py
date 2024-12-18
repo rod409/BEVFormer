@@ -94,12 +94,30 @@ class DetectionTransformerDecoder(TransformerLayerSequence):
 
             reference_points_input = reference_points[..., :2].unsqueeze(
                 2)  # BS NUM_QUERY NUM_LEVEL 2
+            #import pdb
+            #pdb.set_trace()
             output = layer(
                 output,
                 *args,
                 reference_points=reference_points_input,
                 key_padding_mask=key_padding_mask,
                 **kwargs)
+            
+            output = layer(
+                output,
+                kwargs['key'],
+                kwargs['value'],
+                kwargs['query_pos'],
+                None,
+                None,
+                None,
+                key_padding_mask,
+                reference_points_input,
+                kwargs['spatial_shapes'],
+                kwargs['level_start_index'])
+            torch.onnx.export(layer, (output, kwargs['key'],kwargs['value'], kwargs['query_pos'], None, None, None,
+                                      key_padding_mask, reference_points_input, kwargs['spatial_shapes'], kwargs['level_start_index']),
+                                      'layer_decode.onnx', verbose=False, opset_version=16, dynamic_axes=None)
             output = output.permute(1, 0, 2)
 
             if reg_branches is not None:

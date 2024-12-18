@@ -79,6 +79,7 @@ class SpatialCrossAttention(BaseModule):
                 value,
                 residual=None,
                 query_pos=None,
+                key_pos=None,
                 key_padding_mask=None,
                 reference_points=None,
                 spatial_shapes=None,
@@ -86,7 +87,8 @@ class SpatialCrossAttention(BaseModule):
                 bev_mask=None,
                 level_start_index=None,
                 flag='encoder',
-                **kwargs):
+                mask=None,
+                attn_mask=None):
         """Forward Function of Detr3DCrossAtten.
         Args:
             query (Tensor): Query of Transformer with shape
@@ -160,8 +162,10 @@ class SpatialCrossAttention(BaseModule):
             bs * self.num_cams, l, self.embed_dims)
 
         queries = self.deformable_attention(query=queries_rebatch.view(bs*self.num_cams, max_len, self.embed_dims), key=key, value=value,
-                                            reference_points=reference_points_rebatch.view(bs*self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
-                                            level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
+                                             reference_points=reference_points_rebatch.view(bs*self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
+                                             level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
+        #queries = self.deformable_attention(query=queries_rebatch.view(bs * self.num_cams, max_len, self.embed_dims), key=key, value=value)
+        #queries = queries[0].reshape([1, queries[0].shape[0], queries[0].shape[1], queries[0].shape[2]])
         for j in range(bs):
             for i, index_query_per_img in enumerate(indexes):
                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
@@ -382,7 +386,7 @@ class MSDeformableAttention3D(BaseModule):
         #  attention_weights.shape: bs, num_query, num_heads, num_levels, num_all_points
         #
 
-        if torch.cuda.is_available() and value.is_cuda:
+        '''if torch.cuda.is_available() and value.is_cuda:
             if value.dtype == torch.float16:
                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
             else:
@@ -390,9 +394,10 @@ class MSDeformableAttention3D(BaseModule):
             output = MultiScaleDeformableAttnFunction.apply(
                 value, spatial_shapes, level_start_index, sampling_locations,
                 attention_weights, self.im2col_step)
-        else:
-            output = multi_scale_deformable_attn_pytorch(
-                value, spatial_shapes, sampling_locations, attention_weights)
+        else:'''
+        #print('completed')
+        output = multi_scale_deformable_attn_pytorch(
+            value, spatial_shapes, sampling_locations, attention_weights)
         if not self.batch_first:
             output = output.permute(1, 0, 2)
 

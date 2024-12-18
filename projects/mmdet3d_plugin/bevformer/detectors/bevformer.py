@@ -83,12 +83,16 @@ class BEVFormer(MVXTwoStageDetector):
                 img = self.grid_mask(img)
 
             img_feats = self.img_backbone(img)
+            # traced_script_module = torch.jit.trace(self.img_backbone, img, strict=False)
+            # traced_script_module.save('traced_r101_dcn_fcos3d_pretrain.pt')
+            torch.onnx.export(self.img_backbone, img, 'bevformer_small_epoch_24_conv2d_backbone.onnx', verbose=True, opset_version=14, dynamic_axes=None)
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:
             return None
         if self.with_img_neck:
-            img_feats = self.img_neck(img_feats)
+            torch.onnx.export(self.img_neck, img_feats[0], 'bevformer_small_epoch_24_conv2d_neck.onnx', verbose=False, opset_version=14, dynamic_axes=None)
+            img_feats = self.img_neck(img_feats[0])
 
         img_feats_reshaped = []
         for img_feat in img_feats:
@@ -241,10 +245,12 @@ class BEVFormer(MVXTwoStageDetector):
         img = [img] if img is None else img
 
         if img_metas[0][0]['scene_token'] != self.prev_frame_info['scene_token']:
+        # if img_metas[0].data[0][0]['scene_token']  != self.prev_frame_info['scene_token']:
             # the first sample of each scene is truncated
             self.prev_frame_info['prev_bev'] = None
         # update idx
         self.prev_frame_info['scene_token'] = img_metas[0][0]['scene_token']
+        # self.prev_frame_info['scene_token'] = img_metas[0].data[0][0]['scene_token']
 
         # do not use temporal information
         if not self.video_test_mode:
@@ -252,16 +258,24 @@ class BEVFormer(MVXTwoStageDetector):
 
         # Get the delta of ego position and angle between two timestamps.
         tmp_pos = copy.deepcopy(img_metas[0][0]['can_bus'][:3])
+        # tmp_pos = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][:3])
         tmp_angle = copy.deepcopy(img_metas[0][0]['can_bus'][-1])
+        # tmp_angle = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][-1])
         if self.prev_frame_info['prev_bev'] is not None:
             img_metas[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']
+            # img_metas[0].data[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']
             img_metas[0][0]['can_bus'][-1] -= self.prev_frame_info['prev_angle']
+            # img_metas[0].data[0][0]['can_bus'][-1] -= self.prev_frame_info['prev_angle']
         else:
             img_metas[0][0]['can_bus'][-1] = 0
+            # img_metas[0].data[0][0]['can_bus'][-1] = 0
             img_metas[0][0]['can_bus'][:3] = 0
+            # img_metas[0].data[0][0]['can_bus'][:3] = 0
 
         new_prev_bev, bbox_results = self.simple_test(
             img_metas[0], img[0], prev_bev=self.prev_frame_info['prev_bev'], **kwargs)
+        # new_prev_bev, bbox_results = self.simple_test(
+        #     img_metas[0].data[0], img[0].data[0], prev_bev=self.prev_frame_info['prev_bev'], **kwargs)
         # During inference, we save the BEV features and ego motion of each timestamp.
         self.prev_frame_info['prev_pos'] = tmp_pos
         self.prev_frame_info['prev_angle'] = tmp_angle
@@ -282,11 +296,18 @@ class BEVFormer(MVXTwoStageDetector):
 
     def simple_test(self, img_metas, img=None, prev_bev=None, rescale=False):
         """Test function without augmentaiton."""
+        from datetime import datetime
+        t = datetime.now()
         img_feats = self.extract_feat(img=img, img_metas=img_metas)
+        print(datetime.now() - t)
+
+        # time.sleep(0.2)
 
         bbox_list = [dict() for i in range(len(img_metas))]
+        t = datetime.now()
         new_prev_bev, bbox_pts = self.simple_test_pts(
             img_feats, img_metas, prev_bev, rescale=rescale)
+        print(datetime.now() - t)
         for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
             result_dict['pts_bbox'] = pts_bbox
         return new_prev_bev, bbox_list

@@ -216,7 +216,6 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 bev_query,
                 key,
                 value,
-                *args,
                 bev_pos=bev_pos,
                 ref_2d=hybird_ref_2d,
                 ref_3d=ref_3d,
@@ -226,8 +225,13 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 level_start_index=level_start_index,
                 reference_points_cam=reference_points_cam,
                 bev_mask=bev_mask,
-                prev_bev=prev_bev,
-                **kwargs)
+                prev_bev=prev_bev)
+            #import pdb
+            #pdb.set_trace()
+            torch.onnx.export(layer, (bev_query, key, value, bev_pos, None, None, None, None, None, hybird_ref_2d, ref_3d, bev_h, bev_w, reference_points_cam, None, spatial_shapes, level_start_index, bev_mask, prev_bev), 'layer'+str(lid)+'.onnx', verbose=False, opset_version=16, dynamic_axes=None)
+            # traced_script_module = torch.jit.trace(layer, (bev_query, key, value, bev_pos, None, None, None, None, None, hybird_ref_2d, ref_3d, bev_h, bev_w, reference_points_cam, None, spatial_shapes, level_start_index, bev_mask, prev_bev), strict=False)
+            # traced_script_module = torch.jit.trace(layer, (bev_query, key, value, bev_pos, hybird_ref_2d, ref_3d, torch.tensor(bev_h), torch.tensor(bev_w), reference_points_cam, spatial_shapes, level_start_index, bev_mask), strict=False)
+            # traced_script_module.save('layer'+str(lid)+'.pt')
 
             bev_query = output
             if self.return_intermediate:
@@ -302,8 +306,22 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
                 mask=None,
                 spatial_shapes=None,
                 level_start_index=None,
-                prev_bev=None,
-                **kwargs):
+                bev_mask=None,
+                prev_bev=None):
+        '''def forward(self,
+                query,
+                key=None,
+                value=None,
+                bev_pos=None,
+                ref_2d=None,
+                ref_3d=None,
+                bev_h=None,
+                bev_w=None,
+                reference_points_cam=None,
+
+                spatial_shapes=None,
+                level_start_index=None,
+                bev_mask=None):'''
         """Forward function for `TransformerDecoderLayer`.
 
         **kwargs contains some specific arguments of attentions.
@@ -335,6 +353,14 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
             Tensor: forwarded results with shape [num_queries, bs, embed_dims].
         """
 
+        '''query_pos = None
+        key_pos = None
+        attn_masks = None
+        query_key_padding_mask = None
+        key_padding_mask = None
+        mask = None
+        prev_bev = None'''
+
         norm_index = 0
         attn_index = 0
         ffn_index = 0
@@ -356,7 +382,6 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
         for layer in self.operation_order:
             # temporal self attention
             if layer == 'self_attn':
-
                 query = self.attentions[attn_index](
                     query,
                     prev_bev,
@@ -369,8 +394,7 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
                     reference_points=ref_2d,
                     spatial_shapes=torch.tensor(
                         [[bev_h, bev_w]], device=query.device),
-                    level_start_index=torch.tensor([0], device=query.device),
-                    **kwargs)
+                    level_start_index=torch.tensor([0], device=query.device))
                 attn_index += 1
                 identity = query
 
@@ -394,7 +418,7 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
                     key_padding_mask=key_padding_mask,
                     spatial_shapes=spatial_shapes,
                     level_start_index=level_start_index,
-                    **kwargs)
+                    bev_mask=bev_mask)
                 attn_index += 1
                 identity = query
 

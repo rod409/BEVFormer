@@ -11,8 +11,7 @@ import warnings
 from mmcv import Config, DictAction
 from mmcv.cnn import fuse_conv_bn
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
-from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
-                         wrap_fp16_model)
+from mmcv.runner import (get_dist_info, init_dist, load_checkpoint, wrap_fp16_model)
 
 from mmdet3d.apis import single_gpu_test
 from mmdet3d.datasets import build_dataset
@@ -154,6 +153,21 @@ def main():
                 print(_module_path)
                 plg_lib = importlib.import_module(_module_path)
 
+    # build the model and load checkpoint
+    cfg.model.train_cfg = None
+    model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
+    fp16_cfg = cfg.get('fp16', None)
+    if fp16_cfg is not None:
+        wrap_fp16_model(model)
+    checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
+    if args.fuse_conv_bn:
+        model = fuse_conv_bn(model)
+
+    # model.eval()
+    # rand_example = torch.rand(6, 3, 900, 1600, dtype=torch.float32)
+    # traced_script_module = torch.jit.trace(model.encoders.camera.backbone, rand_example, strict=False)
+    # traced_script_module.save('traced_model_encoders_camera.pt')
+
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
@@ -194,6 +208,8 @@ def main():
 
     # build the dataloader
     dataset = build_dataset(cfg.data.test)
+    # from projects.mmdet3d_plugin.datasets.nuscenes_dataset import CustomNuScenesDataset
+    # dataset = CustomNuScenesDataset(**cfg.data.test.copy())
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=samples_per_gpu,
@@ -204,14 +220,15 @@ def main():
     )
 
     # build the model and load checkpoint
-    cfg.model.train_cfg = None
+    '''cfg.model.train_cfg = None
     model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if args.fuse_conv_bn:
-        model = fuse_conv_bn(model)
+        model = fuse_conv_bn(model)'''
+
     # old versions did not save class info in checkpoints, this walkaround is
     # for backward compatibility
     if 'CLASSES' in checkpoint.get('meta', {}):
@@ -225,10 +242,32 @@ def main():
         # segmentation dataset has `PALETTE` attribute
         model.PALETTE = dataset.PALETTE
 
+    modules = dict()
+    for k, m in model.named_modules():
+        for c1, c2 in m.named_children():
+            '''if c2._get_name() ==  'ModulatedDeformConv2dPack':
+                c3 = torch.nn.Conv2d(in_channels=c2.in_channels, out_channels=c2.out_channels, kernel_size=c2.kernel_size, stride=c2.stride, padding=c2.padding, dilation=c2.dilation, groups=c2.groups, bias=c2.bias)
+                c3.weight = c2.weight
+                c3.bias = c2.bias
+                c3.output_padding = c2.output_padding
+                setattr(m, c1, c3)'''
+            '''if c2._get_name() == 'MSDeformableAttention3D':
+                c3 = torch.nn.MultiheadAttention(c2.embed_dims, c2.num_heads, batch_first=c2.batch_first)
+                setattr(m, c1, c3)'''
+            '''if c2._get_name() == 'CustomMSDeformableAttention':
+                c3 = torch.nn.MultiheadAttention(c2.embed_dims, c2.num_heads, batch_first=c2.batch_first)
+                setattr(m, c1, c3)'''
+
+    for k, m2 in modules.items():
+        import re
+        search = re.search('\.\d+\.', k)
+        if search is not None:
+            eval('model.' + k[:search.start(0)] + '[' + k[search.start(0)+1 : search.end(0)-1] + ']').__setattr__(k[search.end(0):], m2)
+
     if not distributed:
-        assert False
-        # model = MMDataParallel(model, device_ids=[0])
-        # outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+        # assert False
+        model = MMDataParallel(model, device_ids=[0])
+        outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
