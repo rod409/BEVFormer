@@ -151,8 +151,8 @@ class SpatialCrossAttention(BaseModule):
         for j in range(bs):
             for i, reference_points_per_img in enumerate(reference_points_cam):   
                 index_query_per_img = indexes[i]
-                queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
-                reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
+                queries_rebatch[j, i, :index_query_per_img.shape[0]] = query[j, index_query_per_img]
+                reference_points_rebatch[j, i, :index_query_per_img.shape[0]] = reference_points_per_img[j, index_query_per_img]
 
         num_cams, l, bs, embed_dims = key.shape
 
@@ -166,9 +166,11 @@ class SpatialCrossAttention(BaseModule):
                                              level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
         #queries = self.deformable_attention(query=queries_rebatch.view(bs * self.num_cams, max_len, self.embed_dims), key=key, value=value)
         #queries = queries[0].reshape([1, queries[0].shape[0], queries[0].shape[1], queries[0].shape[2]])
+        #import pdb
+        #pdb.set_trace()
         for j in range(bs):
             for i, index_query_per_img in enumerate(indexes):
-                slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
+                slots[j, index_query_per_img] += queries[j, i, :index_query_per_img.shape[0]]
 
         count = bev_mask.sum(-1) > 0
         count = count.permute(1, 2, 0).sum(-1)
@@ -333,7 +335,7 @@ class MSDeformableAttention3D(BaseModule):
 
         bs, num_query, _ = query.shape
         bs, num_value, _ = value.shape
-        assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
+        #assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
 
         value = self.value_proj(value)
         if key_padding_mask is not None:
@@ -386,7 +388,7 @@ class MSDeformableAttention3D(BaseModule):
         #  attention_weights.shape: bs, num_query, num_heads, num_levels, num_all_points
         #
 
-        '''if torch.cuda.is_available() and value.is_cuda:
+        if False and torch.cuda.is_available() and value.is_cuda:
             if value.dtype == torch.float16:
                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
             else:
@@ -394,9 +396,11 @@ class MSDeformableAttention3D(BaseModule):
             output = MultiScaleDeformableAttnFunction.apply(
                 value, spatial_shapes, level_start_index, sampling_locations,
                 attention_weights, self.im2col_step)
-        else:'''
+        else:
         #print('completed')
-        output = multi_scale_deformable_attn_pytorch(
+        #import pdb
+        #pdb.set_trace()
+            output = multi_scale_deformable_attn_pytorch(
             value, spatial_shapes, sampling_locations, attention_weights)
         if not self.batch_first:
             output = output.permute(1, 0, 2)

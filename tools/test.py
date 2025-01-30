@@ -3,10 +3,12 @@
 # ---------------------------------------------
 #  Modified by Zhiqi Li
 # ---------------------------------------------
+import sys
 import argparse
 import mmcv
 import os
 import torch
+import torchviz
 import warnings
 from mmcv import Config, DictAction
 from mmcv.cnn import fuse_conv_bn
@@ -23,6 +25,8 @@ from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
 
+import onnx
+import onnxruntime as ort
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -154,16 +158,16 @@ def main():
                 plg_lib = importlib.import_module(_module_path)
 
     # build the model and load checkpoint
-    cfg.model.train_cfg = None
+    '''cfg.model.train_cfg = None
     model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if args.fuse_conv_bn:
-        model = fuse_conv_bn(model)
+        model = fuse_conv_bn(model)'''
 
-    # model.eval()
+    #model.eval()
     # rand_example = torch.rand(6, 3, 900, 1600, dtype=torch.float32)
     # traced_script_module = torch.jit.trace(model.encoders.camera.backbone, rand_example, strict=False)
     # traced_script_module.save('traced_model_encoders_camera.pt')
@@ -220,14 +224,14 @@ def main():
     )
 
     # build the model and load checkpoint
-    '''cfg.model.train_cfg = None
+    cfg.model.train_cfg = None
     model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if args.fuse_conv_bn:
-        model = fuse_conv_bn(model)'''
+        model = fuse_conv_bn(model)
 
     # old versions did not save class info in checkpoints, this walkaround is
     # for backward compatibility
@@ -266,7 +270,39 @@ def main():
 
     if not distributed:
         # assert False
+        '''backbone = onnx.load('bevformer_small_epoch_24_conv2d_backbone.onnx')
+        neck = onnx.load('bevformer_small_epoch_24_conv2d_neck.onnx')
+        layer0 = onnx.load('layer0.onnx')
+        import pdb
+        pdb.set_trace()
+        onnx_model = onnx.compose.merge_models(backbone, neck, [(backbone.graph.output[0].name, neck.graph.input[0].name)])
+        onnx.checker.check_model(onnx_model)
+        ort_sess = ort.InferenceSession(onnx_model.SerializeToString())
+        input_name = ort_sess.get_inputs()[0].name
+        output_name = ort_sess.get_outputs()[0].name
+        data = next(iter(data_loader))
+        item = data['img'][0].data[0].numpy()[0]
+
+        ort_sess.run([output_name], {input_name: item})'''
         model = MMDataParallel(model, device_ids=[0])
+        data = next(iter(data_loader))
+        img = data["img"][0].data[0]
+        img_metas = data["img_metas"][0].data[0]
+        image_metas = []
+        for i in range(len(img_metas)):
+            lidar2img = [torch.from_numpy(l) for l in img_metas[i]['lidar2img']]
+            #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
+            image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': torch.from_numpy(img_metas[i]['can_bus'])})
+        #import pdb
+        #pdb.set_trace()
+        #model(return_loss=False, rescale=True, **data)
+        #model.forward = model.forward_test
+        #model.eval()
+        #model([image_metas], [img])
+        #torch.onnx.export(model, ([image_metas], [img]), 'bevformer.onnx', verbose=True, opset_version=16, dynamic_axes=None)
+        #y = model(return_loss=False, rescale=True, **data)
+        #torchviz.make_dot(y[0]['pts_bbox']['boxes_3d'].tensor, params=dict(model.named_parameters())).render("model_graph", format="png")
+        #print('done')
         outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
     else:
         model = MMDistributedDataParallel(

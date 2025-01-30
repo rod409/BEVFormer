@@ -19,7 +19,7 @@ from mmcv.utils import ext_loader
 from .custom_base_transformer_layer import MyCustomBaseTransformerLayer
 ext_module = ext_loader.load_ext(
     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
-
+import pdb
 
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
 class BEVFormerEncoder(TransformerLayerSequence):
@@ -94,8 +94,12 @@ class BEVFormerEncoder(TransformerLayerSequence):
 
         lidar2img = []
         for img_meta in img_metas:
+            #lidar2img.append(torch.stack(img_meta['lidar2img']))
             lidar2img.append(img_meta['lidar2img'])
+        #import pdb
+        #pdb.set_trace()
         lidar2img = np.asarray(lidar2img)
+        #lidar2img = torch.stack(lidar2img)
         lidar2img = reference_points.new_tensor(lidar2img)  # (B, N, 4, 4)
         reference_points = reference_points.clone()
 
@@ -153,7 +157,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 bev_query,
                 key,
                 value,
-                *args,
+                #*args,
                 bev_h=None,
                 bev_w=None,
                 bev_pos=None,
@@ -162,6 +166,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 valid_ratios=None,
                 prev_bev=None,
                 shift=0.,
+                image_metas=None,
                 **kwargs):
         """Forward function for `TransformerDecoder`.
         Args:
@@ -191,8 +196,13 @@ class BEVFormerEncoder(TransformerLayerSequence):
             bev_h, bev_w, dim='2d', bs=bev_query.size(1), device=bev_query.device, dtype=bev_query.dtype)
 
         reference_points_cam, bev_mask = self.point_sampling(
-            ref_3d, self.pc_range, kwargs['img_metas'])
-
+            ref_3d, self.pc_range, image_metas)
+        #img_metas = []
+        #for meta in kwargs['img_metas']:
+        #    img_metas.append({'lidar2img': meta['lidar2img'], 'img_shape': meta['img_shape']})
+        #import pdb
+        #pdb.set_trace()
+        #torch.onnx.export(self.point_sampling, (ref_3d, self.pc_range, img_metas), 'point_sampling.onnx', verbose=False, opset_version=16, dynamic_axes=None)
         # bug: this code should be 'shift_ref_2d = ref_2d.clone()', we keep this bug for reproducing our results in paper.
         shift_ref_2d = ref_2d.clone()
         shift_ref_2d += shift[:, None, None, :]
@@ -228,7 +238,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 prev_bev=prev_bev)
             #import pdb
             #pdb.set_trace()
-            torch.onnx.export(layer, (bev_query, key, value, bev_pos, None, None, None, None, None, hybird_ref_2d, ref_3d, bev_h, bev_w, reference_points_cam, None, spatial_shapes, level_start_index, bev_mask, prev_bev), 'layer'+str(lid)+'.onnx', verbose=False, opset_version=16, dynamic_axes=None)
+            #torch.onnx.export(layer, (bev_query, key, value, bev_pos, None, None, None, None, None, hybird_ref_2d, ref_3d, bev_h, bev_w, reference_points_cam, None, spatial_shapes, level_start_index, bev_mask, prev_bev), 'layer'+str(lid)+'.onnx', verbose=False, opset_version=16, dynamic_axes=None)
             # traced_script_module = torch.jit.trace(layer, (bev_query, key, value, bev_pos, None, None, None, None, None, hybird_ref_2d, ref_3d, bev_h, bev_w, reference_points_cam, None, spatial_shapes, level_start_index, bev_mask, prev_bev), strict=False)
             # traced_script_module = torch.jit.trace(layer, (bev_query, key, value, bev_pos, hybird_ref_2d, ref_3d, torch.tensor(bev_h), torch.tensor(bev_w), reference_points_cam, spatial_shapes, level_start_index, bev_mask), strict=False)
             # traced_script_module.save('layer'+str(lid)+'.pt')

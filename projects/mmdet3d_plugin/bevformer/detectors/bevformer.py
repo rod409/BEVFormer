@@ -15,6 +15,7 @@ import copy
 import numpy as np
 import mmdet3d
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
+import pdb
 
 
 @DETECTORS.register_module()
@@ -81,17 +82,20 @@ class BEVFormer(MVXTwoStageDetector):
                 img = img.reshape(B * N, C, H, W)
             if self.use_grid_mask:
                 img = self.grid_mask(img)
-
+            #import pdb
+            #pdb.set_trace()
             img_feats = self.img_backbone(img)
             # traced_script_module = torch.jit.trace(self.img_backbone, img, strict=False)
             # traced_script_module.save('traced_r101_dcn_fcos3d_pretrain.pt')
-            torch.onnx.export(self.img_backbone, img, 'bevformer_small_epoch_24_conv2d_backbone.onnx', verbose=True, opset_version=14, dynamic_axes=None)
+            #torch.onnx.export(self.img_backbone, img, 'bevformer_small_epoch_24_conv2d_backbone.onnx', verbose=True, opset_version=14, dynamic_axes=None)
+            
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:
             return None
         if self.with_img_neck:
-            torch.onnx.export(self.img_neck, img_feats[0], 'bevformer_small_epoch_24_conv2d_neck.onnx', verbose=False, opset_version=14, dynamic_axes=None)
+            #pdb.set_trace()
+            #torch.onnx.export(self.img_neck, img_feats[0], 'bevformer_small_epoch_24_conv2d_neck.onnx', verbose=False, opset_version=14, dynamic_axes=None)
             img_feats = self.img_neck(img_feats[0])
 
         img_feats_reshaped = []
@@ -257,10 +261,14 @@ class BEVFormer(MVXTwoStageDetector):
             self.prev_frame_info['prev_bev'] = None
 
         # Get the delta of ego position and angle between two timestamps.
+        #import pdb
+        #pdb.set_trace()
         tmp_pos = copy.deepcopy(img_metas[0][0]['can_bus'][:3])
+        #tmp_pos = (img_metas[0][0]['can_bus'][:3]).clone()
         # tmp_pos = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][:3])
         tmp_angle = copy.deepcopy(img_metas[0][0]['can_bus'][-1])
         # tmp_angle = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][-1])
+        #tmp_angle = (img_metas[0][0]['can_bus'][-1]).clone()
         if self.prev_frame_info['prev_bev'] is not None:
             img_metas[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']
             # img_metas[0].data[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']
@@ -284,8 +292,29 @@ class BEVFormer(MVXTwoStageDetector):
 
     def simple_test_pts(self, x, img_metas, prev_bev=None, rescale=False):
         """Test function"""
+        #image_metas = []
+        #for i in range(len(img_metas)):
+        #    lidar2img = [torch.from_numpy(l) for l in img_metas[i]['lidar2img']]
+        #    #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
+        #    image_metas.append({'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': torch.from_numpy(img_metas[i]['can_bus'])})
         outs = self.pts_bbox_head(x, img_metas, prev_bev=prev_bev)
-
+        #import pdb
+        #pdb.set_trace()
+        #print('done')
+        #torch.onnx.export(self.pts_bbox_head, (x, image_metas, prev_bev), 'pts_bbox_head.onnx', verbose=True, opset_version=16, dynamic_axes=None)
+        #pdb.set_trace()
+        #outs = self.pts_bbox_head(x, image_metas, prev_bev=prev_bev)
+        #torch.onnx.export(self.pts_bbox_head, (x, image_metas, prev_bev), 'pts_bbox_head.onnx', verbose=True, opset_version=16, dynamic_axes=None)
+        #pdb.set_trace()
+        
+        outs = {
+            'bev_embed': outs[0],
+            'all_cls_scores': outs[1],
+            'all_bbox_preds': outs[2],
+            'enc_cls_scores': None,
+            'enc_bbox_preds': None,
+        }
+        #return outs, outs
         bbox_list = self.pts_bbox_head.get_bboxes(
             outs, img_metas, rescale=rescale)
         bbox_results = [
@@ -308,6 +337,7 @@ class BEVFormer(MVXTwoStageDetector):
         new_prev_bev, bbox_pts = self.simple_test_pts(
             img_feats, img_metas, prev_bev, rescale=rescale)
         print(datetime.now() - t)
+        #return new_prev_bev, bbox_pts
         for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
             result_dict['pts_bbox'] = pts_bbox
         return new_prev_bev, bbox_list

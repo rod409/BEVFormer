@@ -11,6 +11,7 @@ from mmdet.models.dense_heads import DETRHead
 from mmdet3d.core.bbox.coders import build_bbox_coder
 from projects.mmdet3d_plugin.core.bbox.util import normalize_bbox
 from mmcv.runner import force_fp32, auto_fp16
+from mmdet3d.core.bbox.structures import LiDARInstance3DBoxes
 
 
 @HEADS.register_module()
@@ -115,7 +116,7 @@ class BEVFormerHead(DETRHead):
                 nn.init.constant_(m[-1].bias, bias_init)
 
     @auto_fp16(apply_to=('mlvl_feats'))
-    def forward(self, mlvl_feats, img_metas, prev_bev=None,  only_bev=False):
+    def forward(self, mlvl_feats, img_metas=None, prev_bev=None,  only_bev=False):
         """Forward function.
         Args:
             mlvl_feats (tuple[Tensor]): Features from the upstream
@@ -131,15 +132,19 @@ class BEVFormerHead(DETRHead):
                 head with normalized coordinate format (cx, cy, w, l, cz, h, theta, vx, vy). \
                 Shape [nb_dec, bs, num_query, 9].
         """
+        #import pdb
+        #pdb.set_trace()
         bs, num_cam, _, _, _ = mlvl_feats[0].shape
         dtype = mlvl_feats[0].dtype
         object_query_embeds = self.query_embedding.weight.to(dtype)
         bev_queries = self.bev_embedding.weight.to(dtype)
-
+        #return bev_queries
         bev_mask = torch.zeros((bs, self.bev_h, self.bev_w),
                                device=bev_queries.device).to(dtype)
+        #return bev_mask
+        self.positional_encoding.to(bev_queries.device)
         bev_pos = self.positional_encoding(bev_mask).to(dtype)
-
+        #return bev_pos
         if only_bev:  # only use encoder to obtain BEV features, TODO: refine the workaround
             return self.transformer.get_bev_features(
                 mlvl_feats,
@@ -167,22 +172,26 @@ class BEVFormerHead(DETRHead):
                 img_metas=img_metas,
                 prev_bev=prev_bev
         )
-
+        
         bev_embed, hs, init_reference, inter_references = outputs
         hs = hs.permute(0, 2, 1, 3)
         outputs_classes = []
         outputs_coords = []
+        #return bev_embed
         for lvl in range(hs.shape[0]):
             if lvl == 0:
                 reference = init_reference
             else:
                 reference = inter_references[lvl - 1]
             reference = inverse_sigmoid(reference)
+            
             outputs_class = self.cls_branches[lvl](hs[lvl])
             tmp = self.reg_branches[lvl](hs[lvl])
-
+            #import pdb
+            #pdb.set_trace()
             # TODO: check the shape of reference
-            assert reference.shape[-1] == 3
+            #assert reference.shape[-1] == 3
+            
             tmp[..., 0:2] += reference[..., 0:2]
             tmp[..., 0:2] = tmp[..., 0:2].sigmoid()
             tmp[..., 4:5] += reference[..., 2:3]
@@ -198,10 +207,12 @@ class BEVFormerHead(DETRHead):
             outputs_coord = tmp
             outputs_classes.append(outputs_class)
             outputs_coords.append(outputs_coord)
-
+            
+        #import pdb
+        #pdb.set_trace()
         outputs_classes = torch.stack(outputs_classes)
         outputs_coords = torch.stack(outputs_coords)
-
+        #return None
         outs = {
             'bev_embed': bev_embed,
             'all_cls_scores': outputs_classes,
@@ -209,8 +220,9 @@ class BEVFormerHead(DETRHead):
             'enc_cls_scores': None,
             'enc_bbox_preds': None,
         }
-
-        return outs
+        #return None, None, None, None
+        #print('yow')
+        return bev_embed, outputs_classes, outputs_coords
 
     def _get_target_single(self,
                            cls_score,
