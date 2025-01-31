@@ -217,7 +217,8 @@ def main():
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=samples_per_gpu,
-        workers_per_gpu=cfg.data.workers_per_gpu,
+        #workers_per_gpu=cfg.data.workers_per_gpu,
+        workers_per_gpu=0,
         dist=distributed,
         shuffle=False,
         nonshuffler_sampler=cfg.data.nonshuffler_sampler,
@@ -285,14 +286,14 @@ def main():
 
         ort_sess.run([output_name], {input_name: item})'''
         model = MMDataParallel(model, device_ids=[0])
-        data = next(iter(data_loader))
-        img = data["img"][0].data[0]
-        img_metas = data["img_metas"][0].data[0]
-        image_metas = []
-        for i in range(len(img_metas)):
-            lidar2img = [torch.from_numpy(l) for l in img_metas[i]['lidar2img']]
+        #data = next(iter(data_loader))
+        #img = data["img"][0].data[0]
+        #img_metas = data["img_metas"][0].data[0]
+        #image_metas = []
+        #for i in range(len(img_metas)):
+        #    lidar2img = [torch.from_numpy(l) for l in img_metas[i]['lidar2img']]
             #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
-            image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': torch.from_numpy(img_metas[i]['can_bus'])})
+        #    image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': torch.from_numpy(img_metas[i]['can_bus'])})
         #import pdb
         #pdb.set_trace()
         #model(return_loss=False, rescale=True, **data)

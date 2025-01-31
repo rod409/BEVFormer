@@ -13,6 +13,7 @@ from .nuscnes_eval import NuScenesEval_custom
 from projects.mmdet3d_plugin.models.utils.visual import save_tensor
 from mmcv.parallel import DataContainer as DC
 import random
+import torch
 
 
 @DATASETS.register_module()
@@ -172,7 +173,18 @@ class CustomNuScenesDataset(NuScenesDataset):
             dict: Data dictionary of the corresponding index.
         """
         if self.test_mode:
-            return self.prepare_test_data(idx)
+            data = self.prepare_test_data(idx)
+            #import pdb
+            #pdb.set_trace()
+            #img = data["img"].data[0]
+            img_metas = data["img_metas"]
+            #image_metas = []
+            for i in range(len(img_metas)):
+                lidar2img = [torch.from_numpy(l) for l in img_metas[i].data['lidar2img']]
+                img_metas[i].data['lidar2img'] = lidar2img
+                img_metas[i].data['img_shape'] = torch.tensor(img_metas[i].data['img_shape'])
+                img_metas[i].data['can_bus'] = torch.from_numpy(img_metas[i].data['can_bus'])
+            return data
         while True:
 
             data = self.prepare_train_data(idx)

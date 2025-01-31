@@ -263,12 +263,12 @@ class BEVFormer(MVXTwoStageDetector):
         # Get the delta of ego position and angle between two timestamps.
         #import pdb
         #pdb.set_trace()
-        tmp_pos = copy.deepcopy(img_metas[0][0]['can_bus'][:3])
-        #tmp_pos = (img_metas[0][0]['can_bus'][:3]).clone()
+        #tmp_pos = copy.deepcopy(img_metas[0][0]['can_bus'][:3])
+        tmp_pos = (img_metas[0][0]['can_bus'][:3]).clone()
         # tmp_pos = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][:3])
-        tmp_angle = copy.deepcopy(img_metas[0][0]['can_bus'][-1])
+        #tmp_angle = copy.deepcopy(img_metas[0][0]['can_bus'][-1])
         # tmp_angle = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][-1])
-        #tmp_angle = (img_metas[0][0]['can_bus'][-1]).clone()
+        tmp_angle = (img_metas[0][0]['can_bus'][-1]).clone()
         if self.prev_frame_info['prev_bev'] is not None:
             img_metas[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']
             # img_metas[0].data[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']

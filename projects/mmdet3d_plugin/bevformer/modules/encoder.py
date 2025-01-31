@@ -94,12 +94,11 @@ class BEVFormerEncoder(TransformerLayerSequence):
 
         lidar2img = []
         for img_meta in img_metas:
-            #lidar2img.append(torch.stack(img_meta['lidar2img']))
-            lidar2img.append(img_meta['lidar2img'])
+            lidar2img.append(torch.stack(img_meta['lidar2img']))
         #import pdb
         #pdb.set_trace()
-        lidar2img = np.asarray(lidar2img)
-        #lidar2img = torch.stack(lidar2img)
+        #lidar2img = np.asarray(lidar2img)
+        lidar2img = torch.stack(lidar2img)
         lidar2img = reference_points.new_tensor(lidar2img)  # (B, N, 4, 4)
         reference_points = reference_points.clone()
 
@@ -121,7 +120,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
             D, B, 1, num_query, 4).repeat(1, 1, num_cam, 1, 1).unsqueeze(-1)
 
         lidar2img = lidar2img.view(
-            1, B, num_cam, 1, 4, 4).repeat(D, 1, 1, num_query, 1, 1)
+            1, B, num_cam, 1, 4, 4).repeat(D, 1, 1, num_query, 1, 1).to(reference_points.get_device())
 
         reference_points_cam = torch.matmul(lidar2img.to(torch.float32),
                                             reference_points.to(torch.float32)).squeeze(-1)
