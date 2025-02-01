@@ -315,13 +315,7 @@ class BEVFormer(MVXTwoStageDetector):
             'enc_bbox_preds': None,
         }
         #return outs, outs
-        bbox_list = self.pts_bbox_head.get_bboxes(
-            outs, img_metas, rescale=rescale)
-        bbox_results = [
-            bbox3d2result(bboxes, scores, labels)
-            for bboxes, scores, labels in bbox_list
-        ]
-        return outs['bev_embed'], bbox_results
+        return outs
 
     def simple_test(self, img_metas, img=None, prev_bev=None, rescale=False):
         """Test function without augmentaiton."""
@@ -334,10 +328,19 @@ class BEVFormer(MVXTwoStageDetector):
 
         bbox_list = [dict() for i in range(len(img_metas))]
         t = datetime.now()
-        new_prev_bev, bbox_pts = self.simple_test_pts(
+        outs = self.simple_test_pts(
             img_feats, img_metas, prev_bev, rescale=rescale)
+        new_prev_bev, bbox_pts = self.get_bboxes(outs, img_metas)
         print(datetime.now() - t)
-        #return new_prev_bev, bbox_pts
         for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
             result_dict['pts_bbox'] = pts_bbox
         return new_prev_bev, bbox_list
+    
+    def get_bboxes(self, outs, img_metas, rescale=False):
+        bbox_list = self.pts_bbox_head.get_bboxes(
+            outs, img_metas, rescale=rescale)
+        bbox_results = [
+            bbox3d2result(bboxes, scores, labels)
+            for bboxes, scores, labels in bbox_list
+        ]
+        return outs['bev_embed'], bbox_results
