@@ -148,7 +148,7 @@ class BEVFormer(MVXTwoStageDetector):
         dummy_metas = None
         return self.forward_test(img=img, img_metas=[[dummy_metas]])
 
-    def forward(self, return_loss=True, **kwargs):
+    def forward(self, return_loss=True, prev_bev=None, use_prev_bev=1.0, **kwargs):
         """Calls either forward_train or forward_test depending on whether
         return_loss=True.
         Note this setting will change the expected inputs. When
@@ -161,7 +161,7 @@ class BEVFormer(MVXTwoStageDetector):
         if return_loss:
             return self.forward_train(**kwargs)
         else:
-            return self.forward_test(**kwargs)
+            return self.forward_test(prev_bev=prev_bev, use_prev_bev=use_prev_bev, **kwargs)
     
     def obtain_history_bev(self, imgs_queue, img_metas_list):
         """Obtain history BEV features iteratively. To save GPU memory, gradients are not calculated.
@@ -241,7 +241,7 @@ class BEVFormer(MVXTwoStageDetector):
         losses.update(losses_pts)
         return losses
 
-    def forward_test(self, img_metas, img=None, **kwargs):
+    def forward_test(self, prev_bev=None, use_prev_bev=1.0, img_metas=None, img=None, **kwargs):
         for var, name in [(img_metas, 'img_metas')]:
             if not isinstance(var, list):
                 raise TypeError('{} must be a list, but got {}'.format(
@@ -257,8 +257,8 @@ class BEVFormer(MVXTwoStageDetector):
         # self.prev_frame_info['scene_token'] = img_metas[0].data[0][0]['scene_token']
 
         # do not use temporal information
-        if not self.video_test_mode:
-            self.prev_frame_info['prev_bev'] = None
+        #if not self.video_test_mode:
+        #    self.prev_frame_info['prev_bev'] = None
 
         # Get the delta of ego position and angle between two timestamps.
         #import pdb
@@ -279,25 +279,29 @@ class BEVFormer(MVXTwoStageDetector):
             # img_metas[0].data[0][0]['can_bus'][-1] = 0
             img_metas[0][0]['can_bus'][:3] = 0
             # img_metas[0].data[0][0]['can_bus'][:3] = 0
+        #img_metas[0][0]['can_bus'][:3] -= self.prev_frame_info['prev_pos']
+        #img_metas[0][0]['can_bus'][-1] -= self.prev_frame_info['prev_angle']
+        #img_metas[0][0]['can_bus'][:3] *= use_prev_bev
+        #img_metas[0][0]['can_bus'][-1] *= use_prev_bev
 
-        new_prev_bev, bbox_results = self.simple_test(
-            img_metas[0], img[0], prev_bev=self.prev_frame_info['prev_bev'], **kwargs)
+        bev_embed, outputs_classes, outputs_coords = self.simple_test(
+            img_metas[0], img[0], prev_bev=prev_bev, use_prev_bev=use_prev_bev, **kwargs)
         # new_prev_bev, bbox_results = self.simple_test(
         #     img_metas[0].data[0], img[0].data[0], prev_bev=self.prev_frame_info['prev_bev'], **kwargs)
         # During inference, we save the BEV features and ego motion of each timestamp.
         self.prev_frame_info['prev_pos'] = tmp_pos
         self.prev_frame_info['prev_angle'] = tmp_angle
-        self.prev_frame_info['prev_bev'] = new_prev_bev
-        return bbox_results
+        self.prev_frame_info['prev_bev'] = bev_embed
+        return bev_embed, outputs_classes, outputs_coords
 
-    def simple_test_pts(self, x, img_metas, prev_bev=None, rescale=False):
+    def simple_test_pts(self, x, img_metas, prev_bev=None, use_prev_bev=1.0, rescale=False):
         """Test function"""
         #image_metas = []
         #for i in range(len(img_metas)):
         #    lidar2img = [torch.from_numpy(l) for l in img_metas[i]['lidar2img']]
         #    #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
         #    image_metas.append({'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': torch.from_numpy(img_metas[i]['can_bus'])})
-        outs = self.pts_bbox_head(x, img_metas, prev_bev=prev_bev)
+        outs = self.pts_bbox_head(x, img_metas, prev_bev=prev_bev, use_prev_bev=use_prev_bev)
         #import pdb
         #pdb.set_trace()
         #print('done')
@@ -317,7 +321,7 @@ class BEVFormer(MVXTwoStageDetector):
         #return outs, outs
         return outs
 
-    def simple_test(self, img_metas, img=None, prev_bev=None, rescale=False):
+    def simple_test(self, img_metas, img=None, prev_bev=None, use_prev_bev=1.0, rescale=False):
         """Test function without augmentaiton."""
         from datetime import datetime
         t = datetime.now()
@@ -329,12 +333,12 @@ class BEVFormer(MVXTwoStageDetector):
         bbox_list = [dict() for i in range(len(img_metas))]
         t = datetime.now()
         outs = self.simple_test_pts(
-            img_feats, img_metas, prev_bev, rescale=rescale)
-        new_prev_bev, bbox_pts = self.get_bboxes(outs, img_metas)
+            img_feats, img_metas, prev_bev, use_prev_bev=use_prev_bev, rescale=rescale)
+        #new_prev_bev, bbox_pts = self.get_bboxes(outs, img_metas)
         print(datetime.now() - t)
-        for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
-            result_dict['pts_bbox'] = pts_bbox
-        return new_prev_bev, bbox_list
+        #for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
+        #    result_dict['pts_bbox'] = pts_bbox
+        return outs['bev_embed'], outs['all_cls_scores'], outs['all_bbox_preds']
     
     def get_bboxes(self, outs, img_metas, rescale=False):
         bbox_list = self.pts_bbox_head.get_bboxes(
@@ -344,3 +348,15 @@ class BEVFormer(MVXTwoStageDetector):
             for bboxes, scores, labels in bbox_list
         ]
         return outs['bev_embed'], bbox_results
+    
+
+    def post_process(self, outputs_classes, outputs_coords, img_metas):
+        dic = {"all_cls_scores": outputs_classes, "all_bbox_preds": outputs_coords}
+        result_list = self.pts_bbox_head.get_bboxes(dic, img_metas, rescale=True)
+
+        return [
+            {
+                "pts_bbox": bbox3d2result(bboxes, scores, labels)
+                for bboxes, scores, labels in result_list
+            }
+        ]

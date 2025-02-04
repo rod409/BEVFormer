@@ -304,7 +304,35 @@ def main():
         #y = model(return_loss=False, rescale=True, **data)
         #torchviz.make_dot(y[0]['pts_bbox']['boxes_3d'].tensor, params=dict(model.named_parameters())).render("model_graph", format="png")
         #print('done')
-        outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+        #outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+        model.eval()
+        results = []
+        prev_frame_info = {
+            "scene_token": None,
+            "prev_pos": 0,
+            "prev_angle": 0,
+        }
+        #prev_bev = torch.zeros(cfg.bev_h_ * cfg.bev_w_, 1, cfg._dim_)
+        prev_bev = None
+        dataset = data_loader.dataset
+        prog_bar = mmcv.ProgressBar(len(dataset))
+        for i, data in enumerate(data_loader):
+            with torch.no_grad():
+                img_metas = data["img_metas"][0].data[0]
+                if img_metas[0]["scene_token"] != prev_frame_info["scene_token"]:
+                    use_prev_bev = 0.0
+                    prev_bev = None
+                else: 
+                    use_prev_bev = 1.0
+                prev_frame_info["scene_token"] = img_metas[0]["scene_token"]
+                bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, prev_bev=prev_bev, use_prev_bev=use_prev_bev, **data)
+                result = model.module.post_process(outputs_classes, outputs_coords, img_metas)
+                results.extend(result)
+                prev_bev = bev_embed
+            batch_size = len(result)
+            for _ in range(batch_size):
+                prog_bar.update()
+        outputs = results
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
