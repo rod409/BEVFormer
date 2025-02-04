@@ -110,6 +110,7 @@ class PerceptionTransformer(BaseModule):
             grid_length=[0.512, 0.512],
             bev_pos=None,
             prev_bev=None,
+            use_prev_bev=1.0,
             image_metas=None,
             **kwargs):
         """
@@ -212,6 +213,8 @@ class PerceptionTransformer(BaseModule):
             #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
             image_metas.append({'lidar2img': lidar2img, 'img_shape': kwargs['img_metas'][i]['img_shape']})'''
         
+        if prev_bev is None:
+            use_prev_bev = 0.0
         bev_embed = self.encoder(
             bev_queries,
             feat_flatten,
@@ -222,6 +225,7 @@ class PerceptionTransformer(BaseModule):
             spatial_shapes=spatial_shapes,
             level_start_index=level_start_index,
             prev_bev=prev_bev,
+            use_prev_bev=use_prev_bev,
             shift=shift,
             image_metas=image_metas,
             **kwargs
@@ -253,6 +257,7 @@ class PerceptionTransformer(BaseModule):
                 reg_branches=None,
                 cls_branches=None,
                 prev_bev=None,
+                use_prev_bev=1.0,
                 **kwargs):
         """Forward function for `Detr3DTransformer`.
         Args:
@@ -303,6 +308,7 @@ class PerceptionTransformer(BaseModule):
             grid_length=grid_length,
             bev_pos=bev_pos,
             prev_bev=prev_bev,
+            use_prev_bev=use_prev_bev,
             image_metas = kwargs['img_metas'],
             **kwargs)  # bev_embed shape: bs, bev_h*bev_w, embed_dims
         '''torch.onnx.export(self.get_bev_features, (mlvl_feats, 

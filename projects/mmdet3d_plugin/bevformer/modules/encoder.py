@@ -164,6 +164,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 level_start_index=None,
                 valid_ratios=None,
                 prev_bev=None,
+                use_prev_bev=1.0,
                 shift=0.,
                 image_metas=None,
                 **kwargs):
@@ -234,7 +235,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 level_start_index=level_start_index,
                 reference_points_cam=reference_points_cam,
                 bev_mask=bev_mask,
-                prev_bev=prev_bev)
+                prev_bev=prev_bev,
+                use_prev_bev=use_prev_bev)
             #import pdb
             #pdb.set_trace()
             #torch.onnx.export(layer, (bev_query, key, value, bev_pos, None, None, None, None, None, hybird_ref_2d, ref_3d, bev_h, bev_w, reference_points_cam, None, spatial_shapes, level_start_index, bev_mask, prev_bev), 'layer'+str(lid)+'.onnx', verbose=False, opset_version=16, dynamic_axes=None)
@@ -316,7 +318,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
                 spatial_shapes=None,
                 level_start_index=None,
                 bev_mask=None,
-                prev_bev=None):
+                prev_bev=None,
+                use_prev_bev=1.0):
         '''def forward(self,
                 query,
                 key=None,
@@ -391,6 +394,9 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
         for layer in self.operation_order:
             # temporal self attention
             if layer == 'self_attn':
+                if use_prev_bev < 1.0:
+                    bs, len_bev, c = query.shape
+                    prev_bev = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)
                 query = self.attentions[attn_index](
                     query,
                     prev_bev,
