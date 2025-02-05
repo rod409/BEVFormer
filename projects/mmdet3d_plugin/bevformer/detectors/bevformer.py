@@ -264,7 +264,7 @@ class BEVFormer(MVXTwoStageDetector):
         #import pdb
         #pdb.set_trace()
         #tmp_pos = copy.deepcopy(img_metas[0][0]['can_bus'][:3])
-        tmp_pos = (img_metas[0][0]['can_bus'][:3]).clone()
+        '''tmp_pos = (img_metas[0][0]['can_bus'][:3]).clone()
         # tmp_pos = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][:3])
         #tmp_angle = copy.deepcopy(img_metas[0][0]['can_bus'][-1])
         # tmp_angle = copy.deepcopy(img_metas[0].data[0][0]['can_bus'][-1])
@@ -283,14 +283,14 @@ class BEVFormer(MVXTwoStageDetector):
         #img_metas[0][0]['can_bus'][-1] -= self.prev_frame_info['prev_angle']
         #img_metas[0][0]['can_bus'][:3] *= use_prev_bev
         #img_metas[0][0]['can_bus'][-1] *= use_prev_bev
-
+        '''
         bev_embed, outputs_classes, outputs_coords = self.simple_test(
             img_metas[0], img[0], prev_bev=prev_bev, use_prev_bev=use_prev_bev, **kwargs)
         # new_prev_bev, bbox_results = self.simple_test(
         #     img_metas[0].data[0], img[0].data[0], prev_bev=self.prev_frame_info['prev_bev'], **kwargs)
         # During inference, we save the BEV features and ego motion of each timestamp.
-        self.prev_frame_info['prev_pos'] = tmp_pos
-        self.prev_frame_info['prev_angle'] = tmp_angle
+        #self.prev_frame_info['prev_pos'] = tmp_pos
+        #self.prev_frame_info['prev_angle'] = tmp_angle
         self.prev_frame_info['prev_bev'] = bev_embed
         return bev_embed, outputs_classes, outputs_coords
 

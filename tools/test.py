@@ -319,16 +319,24 @@ def main():
         for i, data in enumerate(data_loader):
             with torch.no_grad():
                 img_metas = data["img_metas"][0].data[0]
+                tmp_pos = (img_metas[0]['can_bus'][:3]).clone()
+                tmp_angle = (img_metas[0]['can_bus'][-1]).clone()
                 if img_metas[0]["scene_token"] != prev_frame_info["scene_token"]:
                     use_prev_bev = 0.0
                     prev_bev = None
+                    img_metas[0]["can_bus"][-1] = 0
+                    img_metas[0]["can_bus"][:3] = 0
                 else: 
                     use_prev_bev = 1.0
+                    img_metas[0]["can_bus"][:3] -= prev_frame_info["prev_pos"]
+                    img_metas[0]["can_bus"][-1] -= prev_frame_info["prev_angle"]
                 prev_frame_info["scene_token"] = img_metas[0]["scene_token"]
                 bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, prev_bev=prev_bev, use_prev_bev=use_prev_bev, **data)
                 result = model.module.post_process(outputs_classes, outputs_coords, img_metas)
                 results.extend(result)
                 prev_bev = bev_embed
+                prev_frame_info["prev_pos"] = tmp_pos
+                prev_frame_info["prev_angle"] = tmp_angle
             batch_size = len(result)
             for _ in range(batch_size):
                 prog_bar.update()
