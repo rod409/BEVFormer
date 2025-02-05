@@ -148,7 +148,7 @@ class BEVFormer(MVXTwoStageDetector):
         dummy_metas = None
         return self.forward_test(img=img, img_metas=[[dummy_metas]])
 
-    def forward(self, return_loss=True, prev_bev=None, use_prev_bev=1.0, **kwargs):
+    def forward(self, return_loss=True, prev_bev=None, use_prev_bev=1.0, img_metas=None, img=None, **kwargs):
         """Calls either forward_train or forward_test depending on whether
         return_loss=True.
         Note this setting will change the expected inputs. When
@@ -161,7 +161,7 @@ class BEVFormer(MVXTwoStageDetector):
         if return_loss:
             return self.forward_train(**kwargs)
         else:
-            return self.forward_test(prev_bev=prev_bev, use_prev_bev=use_prev_bev, **kwargs)
+            return self.forward_test(prev_bev=prev_bev, use_prev_bev=use_prev_bev, img_metas=img_metas, img=img, **kwargs)
     
     def obtain_history_bev(self, imgs_queue, img_metas_list):
         """Obtain history BEV features iteratively. To save GPU memory, gradients are not calculated.

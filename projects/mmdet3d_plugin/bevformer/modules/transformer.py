@@ -154,7 +154,7 @@ class PerceptionTransformer(BaseModule):
         )
         shift_y = shift_y * int(self.use_shift)
         shift_x = shift_x * int(self.use_shift)
-        shift = torch.stack([shift_x, shift_y]).permute(1, 0).to(bev_queries.get_device())
+        shift = torch.stack([shift_x, shift_y]).permute(1, 0).to('cuda' if torch.cuda.is_available() else 'cpu')
 
         if prev_bev is not None:
             if prev_bev.shape[1] == bev_h * bev_w:
@@ -175,7 +175,7 @@ class PerceptionTransformer(BaseModule):
         #import pdb
         #pdb.set_trace()
         can_bus = bev_queries.new_tensor(
-            torch.stack([each['can_bus'] for each in image_metas])).to(bev_queries.get_device())  # [:, :]
+            torch.stack([each['can_bus'] for each in image_metas])).to('cuda' if torch.cuda.is_available() else 'cpu')  # [:, :]
         #import pdb
         #pdb.set_trace()
         can_bus = self.can_bus_mlp(can_bus)[None, :, :]
@@ -213,8 +213,8 @@ class PerceptionTransformer(BaseModule):
             #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
             image_metas.append({'lidar2img': lidar2img, 'img_shape': kwargs['img_metas'][i]['img_shape']})'''
         
-        if prev_bev is None:
-            use_prev_bev = 0.0
+        #if prev_bev is None:
+        #    use_prev_bev = 0.0
         bev_embed = self.encoder(
             bev_queries,
             feat_flatten,
