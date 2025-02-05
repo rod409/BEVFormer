@@ -394,9 +394,12 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
         for layer in self.operation_order:
             # temporal self attention
             if layer == 'self_attn':
-                if use_prev_bev < 1.0:
-                    bs, len_bev, c = query.shape
-                    prev_bev = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)
+                bs, len_bev, c = query.shape
+                self_bev = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)
+                prev_bev = (prev_bev*use_prev_bev)+self_bev*(1.0-use_prev_bev)
+                #if use_prev_bev < 1.0:
+                #    bs, len_bev, c = query.shape
+                #    prev_bev = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)
                 query = self.attentions[attn_index](
                     query,
                     prev_bev,

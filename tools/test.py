@@ -312,8 +312,8 @@ def main():
             "prev_pos": 0,
             "prev_angle": 0,
         }
-        #prev_bev = torch.zeros(cfg.bev_h_ * cfg.bev_w_, 1, cfg._dim_)
-        prev_bev = None
+        prev_bev = torch.zeros(cfg.bev_h_ * cfg.bev_w_, 1, cfg._dim_)
+        #prev_bev = None
         dataset = data_loader.dataset
         prog_bar = mmcv.ProgressBar(len(dataset))
         for i, data in enumerate(data_loader):
@@ -323,7 +323,7 @@ def main():
                 tmp_angle = (img_metas[0]['can_bus'][-1]).clone()
                 if img_metas[0]["scene_token"] != prev_frame_info["scene_token"]:
                     use_prev_bev = 0.0
-                    prev_bev = None
+                    #prev_bev = None
                     img_metas[0]["can_bus"][-1] = 0
                     img_metas[0]["can_bus"][:3] = 0
                 else: 
