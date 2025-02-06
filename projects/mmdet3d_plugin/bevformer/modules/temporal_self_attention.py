@@ -174,10 +174,10 @@ class TemporalSelfAttention(BaseModule):
              Tensor: forwarded results with shape [num_query, bs, embed_dims].
         """
 
-        if value is None:
-            assert self.batch_first
-            bs, len_bev, c = query.shape
-            value = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)
+        #if value is None:
+        #    assert self.batch_first
+        #    bs, len_bev, c = query.shape
+        #    value = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)
 
             # value = torch.cat([query, query], 0)
 
@@ -253,6 +253,8 @@ class TemporalSelfAttention(BaseModule):
         #print('temp completed')
         #import pdb
         #pdb.set_trace()
+            #import pdb
+            #pdb.set_trace()
             output = multi_scale_deformable_attn_pytorch(
             value, spatial_shapes, sampling_locations, attention_weights)
 

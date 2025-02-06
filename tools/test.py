@@ -322,12 +322,12 @@ def main():
                 tmp_pos = (img_metas[0]['can_bus'][:3]).clone()
                 tmp_angle = (img_metas[0]['can_bus'][-1]).clone()
                 if img_metas[0]["scene_token"] != prev_frame_info["scene_token"]:
-                    use_prev_bev = 0.0
+                    use_prev_bev = torch.tensor(0.0)
                     #prev_bev = None
                     img_metas[0]["can_bus"][-1] = 0
                     img_metas[0]["can_bus"][:3] = 0
                 else: 
-                    use_prev_bev = 1.0
+                    use_prev_bev = torch.tensor(1.0)
                     img_metas[0]["can_bus"][:3] -= prev_frame_info["prev_pos"]
                     img_metas[0]["can_bus"][-1] -= prev_frame_info["prev_angle"]
                 prev_frame_info["scene_token"] = img_metas[0]["scene_token"]

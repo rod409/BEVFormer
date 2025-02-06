@@ -40,7 +40,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
         self.return_intermediate = return_intermediate
 
         self.num_points_in_pillar = num_points_in_pillar
-        self.pc_range = pc_range
+        self.pc_range = torch.tensor(pc_range)
         self.fp16_enabled = False
 
     @staticmethod
@@ -72,6 +72,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
 
         # reference points on 2D bev plane, used in temporal self-attention (TSA).
         elif dim == '2d':
+            #import pdb
+            #pdb.set_trace()
             ref_y, ref_x = torch.meshgrid(
                 torch.linspace(
                     0.5, H - 0.5, H, dtype=dtype, device=device),
@@ -80,12 +82,14 @@ class BEVFormerEncoder(TransformerLayerSequence):
             )
             ref_y = ref_y.reshape(-1)[None] / H
             ref_x = ref_x.reshape(-1)[None] / W
+            ref_y.to(torch.float32)
+            ref_x.to(torch.float32)
             ref_2d = torch.stack((ref_x, ref_y), -1)
             ref_2d = ref_2d.repeat(bs, 1, 1).unsqueeze(2)
             return ref_2d
 
     # This function must use fp32!!!
-    @force_fp32(apply_to=('reference_points', 'img_metas'))
+    #@force_fp32(apply_to=('reference_points', 'img_metas'))
     def point_sampling(self, reference_points, pc_range,  img_metas):
         # NOTE: close tf32 here.
         allow_tf32 = torch.backends.cuda.matmul.allow_tf32
@@ -189,7 +193,6 @@ class BEVFormerEncoder(TransformerLayerSequence):
 
         output = bev_query
         intermediate = []
-
         ref_3d = self.get_reference_points(
             bev_h, bev_w, self.pc_range[5]-self.pc_range[2], self.num_points_in_pillar, dim='3d', bs=bev_query.size(1),  device=bev_query.device, dtype=bev_query.dtype)
         ref_2d = self.get_reference_points(
@@ -393,6 +396,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
 
         for layer in self.operation_order:
             # temporal self attention
+            #import pdb
+            #pdb.set_trace()
             if layer == 'self_attn':
                 bs, len_bev, c = query.shape
                 self_bev = torch.stack([query, query], 1).reshape(bs*2, len_bev, c)

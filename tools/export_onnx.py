@@ -263,12 +263,12 @@ def main():
             tmp_pos = (img_metas[0]['can_bus'][:3]).clone()
             tmp_angle = (img_metas[0]['can_bus'][-1]).clone()
             if img_metas[0]["scene_token"] != prev_frame_info["scene_token"]:
-                use_prev_bev = 0.0
+                use_prev_bev = torch.tensor(0.0)
                 #prev_bev = None
                 img_metas[0]["can_bus"][-1] = 0
                 img_metas[0]["can_bus"][:3] = 0
             else: 
-                use_prev_bev = 1.0
+                use_prev_bev = torch.tensor(1.0)
                 img_metas[0]["can_bus"][:3] -= prev_frame_info["prev_pos"]
                 img_metas[0]["can_bus"][-1] -= prev_frame_info["prev_angle"]
             prev_frame_info["scene_token"] = img_metas[0]["scene_token"]
@@ -276,10 +276,11 @@ def main():
                 img = data["img"][0].data[0]
                 image_metas = []
                 for i in range(len(img_metas)):
-                    lidar2img = [l for l in img_metas[i]['lidar2img']]
+                    lidar2img = [l.to(torch.float32) for l in img_metas[i]['lidar2img']]
                     #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
-                    image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': img_metas[i]['can_bus']})
+                    image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape'], dtype=torch.float32), 'can_bus': img_metas[i]['can_bus'].to(torch.float32)})
                 torch.onnx.export(model.module, (False, prev_bev,  use_prev_bev, [image_metas], [img]), 'bevformer.onnx', verbose=True, opset_version=16, dynamic_axes=None)
+                break
 
 
 if __name__ == '__main__':

@@ -137,7 +137,7 @@ class SpatialCrossAttention(BaseModule):
 
         D = reference_points_cam.size(3)
         indexes = []
-        for i, mask_per_img in enumerate(bev_mask):
+        for i, mask_per_img in enumerate(bev_mask.to(dtype=torch.int64)):
             index_query_per_img = mask_per_img[0].sum(-1).nonzero().squeeze(-1)
             indexes.append(index_query_per_img)
         max_len = max([len(each) for each in indexes])
