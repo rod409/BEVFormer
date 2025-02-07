@@ -111,6 +111,9 @@ class PerceptionTransformer(BaseModule):
             bev_pos=None,
             prev_bev=None,
             use_prev_bev=1.0,
+            can_bus=None,
+            lidar2img=None,
+            image_shape=None,
             image_metas=None,
             **kwargs):
         """
@@ -121,7 +124,6 @@ class PerceptionTransformer(BaseModule):
         bs = mlvl_feats[0].size(0)
         bev_queries = bev_queries.unsqueeze(1).repeat(1, bs, 1)
         bev_pos = bev_pos.flatten(2).permute(2, 0, 1)
-        can_bus = image_metas[0]['can_bus']
         # obtain rotation angle and shift with ego motion
         delta_x = can_bus[0:1]
         delta_y = can_bus[1:2]
@@ -162,7 +164,7 @@ class PerceptionTransformer(BaseModule):
             if self.rotate_prev_bev:
                 for i in range(bs):
                     # num_prev_bev = prev_bev.size(1)
-                    rotation_angle = image_metas[i]['can_bus'][-1]
+                    rotation_angle = can_bus[-1]
                     tmp_prev_bev = prev_bev[:, i].reshape(
                         bev_h, bev_w, -1).permute(2, 0, 1)
                     tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle.item(),
@@ -171,16 +173,8 @@ class PerceptionTransformer(BaseModule):
                         bev_h * bev_w, 1, -1)
                     prev_bev[:, i] = tmp_prev_bev[:, 0]
 
-        # add can bus signals
-        #import pdb
-        #pdb.set_trace()
-        can_bus = bev_queries.new_tensor(
-            torch.stack([each['can_bus'] for each in image_metas])).to('cuda' if torch.cuda.is_available() else 'cpu')  # [:, :]
-        #import pdb
-        #pdb.set_trace()
+        can_bus = can_bus.unsqueeze(0)
         can_bus = self.can_bus_mlp(can_bus)[None, :, :]
-        #import pdb
-        #pdb.set_trace()
         bev_queries = bev_queries + can_bus * float(self.use_can_bus)
 
         feat_flatten = []
@@ -205,16 +199,6 @@ class PerceptionTransformer(BaseModule):
         feat_flatten = feat_flatten.permute(
             0, 2, 1, 3)  # (num_cam, H*W, bs, embed_dims)
         
-        #image_metas = []
-        #import pdb
-        #pdb.set_trace()
-        '''for i in range(len(kwargs['img_metas'])):
-            lidar2img = [torch.from_numpy(l).cuda() for l in kwargs['img_metas'][i]['lidar2img']]
-            #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
-            image_metas.append({'lidar2img': lidar2img, 'img_shape': kwargs['img_metas'][i]['img_shape']})'''
-        
-        #if prev_bev is None:
-        #    use_prev_bev = 0.0
         bev_embed = self.encoder(
             bev_queries,
             feat_flatten,
@@ -227,7 +211,8 @@ class PerceptionTransformer(BaseModule):
             prev_bev=prev_bev,
             use_prev_bev=use_prev_bev,
             shift=shift,
-            image_metas=image_metas,
+            lidar2img=lidar2img,
+            image_shape=image_shape,
             **kwargs
         )
         
@@ -253,6 +238,9 @@ class PerceptionTransformer(BaseModule):
                 bev_h,
                 bev_w,
                 grid_length=[0.512, 0.512],
+                can_bus=None,
+                lidar2img=None,
+                image_shape=None,
                 bev_pos=None,
                 reg_branches=None,
                 cls_branches=None,
@@ -306,21 +294,14 @@ class PerceptionTransformer(BaseModule):
             bev_h,
             bev_w,
             grid_length=grid_length,
+            can_bus=can_bus,
+            lidar2img=lidar2img,
+            image_shape=image_shape,
             bev_pos=bev_pos,
             prev_bev=prev_bev,
             use_prev_bev=use_prev_bev,
-            image_metas = kwargs['img_metas'],
+            #image_metas = kwargs['img_metas'],
             **kwargs)  # bev_embed shape: bs, bev_h*bev_w, embed_dims
-        '''torch.onnx.export(self.get_bev_features, (mlvl_feats, 
-                                                  bev_queries, 
-                                                  bev_h,
-                                                  bev_w, 
-                                                  grid_length, 
-                                                  bev_pos, 
-                                                  prev_bev,
-                                                  image_metas), 'get_bev_features.onnx', verbose=False, opset_version=16, dynamic_axes=None)'''
-
-        
         bs = mlvl_feats[0].size(0)
         query_pos, query = torch.split(
             object_query_embed, self.embed_dims, dim=1)

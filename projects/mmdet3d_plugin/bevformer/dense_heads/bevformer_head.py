@@ -116,7 +116,7 @@ class BEVFormerHead(DETRHead):
                 nn.init.constant_(m[-1].bias, bias_init)
 
     @auto_fp16(apply_to=('mlvl_feats'))
-    def forward(self, mlvl_feats, img_metas=None, prev_bev=None, use_prev_bev=1.0,  only_bev=False):
+    def forward(self, mlvl_feats, can_bus=None, lidar2img=None, image_shape=None, img_metas=None, prev_bev=None, use_prev_bev=1.0,  only_bev=False):
         """Forward function.
         Args:
             mlvl_feats (tuple[Tensor]): Features from the upstream
@@ -154,8 +154,10 @@ class BEVFormerHead(DETRHead):
                 grid_length=(self.real_h / self.bev_h,
                              self.real_w / self.bev_w),
                 bev_pos=bev_pos,
-                img_metas=img_metas,
+                can_bus=can_bus,
+                lidar2img=lidar2img,
                 prev_bev=prev_bev,
+                image_shape=image_shape,
                 use_prev_bev=use_prev_bev
             )
         else:
@@ -170,8 +172,10 @@ class BEVFormerHead(DETRHead):
                 bev_pos=bev_pos,
                 reg_branches=self.reg_branches if self.with_box_refine else None,  # noqa:E501
                 cls_branches=self.cls_branches if self.as_two_stage else None,
-                img_metas=img_metas,
+                can_bus=can_bus,
+                lidar2img=lidar2img,
                 prev_bev=prev_bev,
+                image_shape=image_shape,
                 use_prev_bev=use_prev_bev
         )
         

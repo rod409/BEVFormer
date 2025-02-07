@@ -90,20 +90,17 @@ class BEVFormerEncoder(TransformerLayerSequence):
 
     # This function must use fp32!!!
     #@force_fp32(apply_to=('reference_points', 'img_metas'))
-    def point_sampling(self, reference_points, pc_range,  img_metas):
+    def point_sampling(self, reference_points, pc_range,  lidar2img, img_shape):
         # NOTE: close tf32 here.
-        allow_tf32 = torch.backends.cuda.matmul.allow_tf32
-        torch.backends.cuda.matmul.allow_tf32 = False
-        torch.backends.cudnn.allow_tf32 = False
+        #allow_tf32 = torch.backends.cuda.matmul.allow_tf32
+        #torch.backends.cuda.matmul.allow_tf32 = False
+        #torch.backends.cudnn.allow_tf32 = False
 
-        lidar2img = []
-        for img_meta in img_metas:
-            lidar2img.append(torch.stack(img_meta['lidar2img']))
         #import pdb
         #pdb.set_trace()
         #lidar2img = np.asarray(lidar2img)
-        lidar2img = torch.stack(lidar2img)
-        lidar2img = reference_points.new_tensor(lidar2img)  # (B, N, 4, 4)
+        #lidar2img = torch.stack(lidar2img)
+        #lidar2img = reference_points.new_tensor(lidar2img)  # (B, N, 4, 4)
         reference_points = reference_points.clone()
 
         reference_points[..., 0:1] = reference_points[..., 0:1] * \
@@ -134,8 +131,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
         reference_points_cam = reference_points_cam[..., 0:2] / torch.maximum(
             reference_points_cam[..., 2:3], torch.ones_like(reference_points_cam[..., 2:3]) * eps)
 
-        reference_points_cam[..., 0] /= img_metas[0]['img_shape'][0][1]
-        reference_points_cam[..., 1] /= img_metas[0]['img_shape'][0][0]
+        reference_points_cam[..., 0] /= img_shape[1]
+        reference_points_cam[..., 1] /= img_shape[0]
 
         bev_mask = (bev_mask & (reference_points_cam[..., 1:2] > 0.0)
                     & (reference_points_cam[..., 1:2] < 1.0)
@@ -150,8 +147,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
         reference_points_cam = reference_points_cam.permute(2, 1, 3, 0, 4)
         bev_mask = bev_mask.permute(2, 1, 3, 0, 4).squeeze(-1)
 
-        torch.backends.cuda.matmul.allow_tf32 = allow_tf32
-        torch.backends.cudnn.allow_tf32 = allow_tf32
+        #torch.backends.cuda.matmul.allow_tf32 = allow_tf32
+        #torch.backends.cudnn.allow_tf32 = allow_tf32
 
         return reference_points_cam, bev_mask
 
@@ -170,6 +167,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
                 prev_bev=None,
                 use_prev_bev=1.0,
                 shift=0.,
+                lidar2img=None,
+                image_shape=None,
                 image_metas=None,
                 **kwargs):
         """Forward function for `TransformerDecoder`.
@@ -199,7 +198,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
             bev_h, bev_w, dim='2d', bs=bev_query.size(1), device=bev_query.device, dtype=bev_query.dtype)
 
         reference_points_cam, bev_mask = self.point_sampling(
-            ref_3d, self.pc_range, image_metas)
+            ref_3d, self.pc_range, lidar2img, image_shape)
         #img_metas = []
         #for meta in kwargs['img_metas']:
         #    img_metas.append({'lidar2img': meta['lidar2img'], 'img_shape': meta['img_shape']})

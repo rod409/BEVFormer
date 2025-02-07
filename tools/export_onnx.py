@@ -273,13 +273,10 @@ def main():
                 img_metas[0]["can_bus"][-1] -= prev_frame_info["prev_angle"]
             prev_frame_info["scene_token"] = img_metas[0]["scene_token"]
             if i == 0:
+                can_bus = img_metas[0]["can_bus"].to(torch.float32)
+                lidar2img = torch.stack(img_metas[0]['lidar2img']).unsqueeze(0).to(torch.float32)
                 img = data["img"][0].data[0]
-                image_metas = []
-                for i in range(len(img_metas)):
-                    lidar2img = [l.to(torch.float32) for l in img_metas[i]['lidar2img']]
-                    #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
-                    image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape'], dtype=torch.float32), 'can_bus': img_metas[i]['can_bus'].to(torch.float32)})
-                torch.onnx.export(model.module, (False, prev_bev,  use_prev_bev, [image_metas], [img]), 'bevformer.onnx', verbose=True, opset_version=16, dynamic_axes=None)
+                torch.onnx.export(model.module, (False, img, prev_bev, use_prev_bev, can_bus, lidar2img), 'bevformer.onnx', input_names=['ret_loss', 'image', 'prev_bev', 'use_prev_bev', 'can_bus', 'lidar2img'], verbose=True, opset_version=16, dynamic_axes=None)
                 break
 
 

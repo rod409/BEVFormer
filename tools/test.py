@@ -339,7 +339,10 @@ def main():
                         #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
                         image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': img_metas[i]['can_bus']})
                     torch.onnx.export(model.module, (False, prev_bev,  use_prev_bev, [image_metas], [img]), 'bevformer.onnx', verbose=True, opset_version=16, dynamic_axes=None)'''
-                bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, prev_bev=prev_bev, use_prev_bev=use_prev_bev, **data)
+                can_bus = img_metas[0]["can_bus"].to(torch.float32)
+                lidar2img = torch.stack(img_metas[0]['lidar2img']).unsqueeze(0).to(torch.float32)
+                img = data["img"][0].data[0]
+                bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, img=img, prev_bev=prev_bev, use_prev_bev=use_prev_bev, lidar2img=lidar2img, can_bus=can_bus)
                 result = model.module.post_process(outputs_classes, outputs_coords, img_metas)
                 results.extend(result)
                 prev_bev = bev_embed
