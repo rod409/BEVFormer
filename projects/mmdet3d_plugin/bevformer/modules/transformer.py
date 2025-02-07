@@ -15,13 +15,13 @@ from mmdet.models.utils.builder import TRANSFORMER
 from torch.nn.init import normal_
 from projects.mmdet3d_plugin.models.utils.visual import save_tensor
 from mmcv.runner.base_module import BaseModule
-from torchvision.transforms.functional import rotate
+#from torchvision.transforms.functional import rotate
+from ...models.utils import rotate
 from .temporal_self_attention import TemporalSelfAttention
 from .spatial_cross_attention import MSDeformableAttention3D
 from .decoder import CustomMSDeformableAttention
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
 from mmcv.runner import force_fp32, auto_fp16
-
 
 @TRANSFORMER.register_module()
 class PerceptionTransformer(BaseModule):
@@ -167,7 +167,7 @@ class PerceptionTransformer(BaseModule):
                     rotation_angle = can_bus[-1]
                     tmp_prev_bev = prev_bev[:, i].reshape(
                         bev_h, bev_w, -1).permute(2, 0, 1)
-                    tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle.item(),
+                    tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle,
                                           center=self.rotate_center)
                     tmp_prev_bev = tmp_prev_bev.permute(1, 2, 0).reshape(
                         bev_h * bev_w, 1, -1)
