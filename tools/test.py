@@ -4,7 +4,6 @@
 #  Modified by Zhiqi Li
 # ---------------------------------------------
 import sys
-sys.path.insert(0, '/research/BEVFormer')
 import argparse
 import mmcv
 import os

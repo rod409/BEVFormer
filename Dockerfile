@@ -62,5 +62,6 @@ RUN python -m pip install 'git+https://github.com/facebookresearch/detectron2.gi
 RUN pip install onnx==1.17.0
 RUN pip install onnxruntime==1.12.0
 RUN pip install numpy==1.21.0
-RUN git clone https://github.com/fundamentalvision/BEVFormer.git
+RUN git clone https://github.com/rod409/BEVFormer.git -b bevonnx
+ENV PYTHONPATH="${PYTHONPATH}:/BEVFORMER/"
 WORKDIR /BEVFormer

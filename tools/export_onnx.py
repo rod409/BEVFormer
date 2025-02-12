@@ -8,7 +8,6 @@ import argparse
 import mmcv
 import os
 import torch
-import torchviz
 import warnings
 from mmcv import Config, DictAction
 from mmcv.cnn import fuse_conv_bn
