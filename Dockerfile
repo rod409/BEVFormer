@@ -3,7 +3,7 @@ ARG CUDA="11.1"
 ARG CUDNN="8"
 
 #FROM pytorch/pytorch:${PYTORCH}-cuda${CUDA}-cudnn${CUDNN}-devel
-FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0 7.5 8.0 8.6+PTX" \
     TORCH_NVCC_FLAGS="-Xfatbin -compress-all" \
@@ -34,26 +34,33 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y python3-pip python3-tk 
+RUN apt-get update && apt-get install -y python3-pip python3-tk
 # # # Install MMEngine, MMCV and MMDetection
 
 RUN python -m pip install --upgrade pip
-RUN pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
-RUN pip install mmcv-full==1.4.0 -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.9.0/index.html
-RUN pip install mmdet==2.14.0
-RUN pip install mmsegmentation==0.14.1
-
+RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+RUN git clone https://github.com/rod409/mmcv.git -b bevonnx /mmcv \
+    && cd /mmcv \
+    && MMCV_WITH_OPS=1 python -m pip install --no-cache-dir -e .
+#RUN pip install mmdet==2.14.0
+#RUN pip install mmsegmentation==0.14.1
+RUN git clone https://github.com/rod409/mmdetection.git -b bevonnx /mmdetection \
+    && cd /mmdetection \
+    && python -m pip install --no-cache-dir -e .
+RUN git clone https://github.com/rod409/mmsegmentation.git -b bevonnx /mmsegmentation \
+    && cd /mmsegmentation \
+    && python -m pip install --no-cache-dir -e .
 RUN pip install einops fvcore seaborn iopath==0.1.9 timm==0.6.13  typing-extensions==4.5.0 pylint ipython==8.12  numpy==1.19.5 matplotlib==3.5.2 numba==0.48.0 pandas==1.4.4 scikit-image==0.19.3 setuptools==59.5.0
 # # # Install MMDetection3D
-RUN git clone https://github.com/open-mmlab/mmdetection3d.git -b v0.17.1 /mmdetection3d \
+RUN git clone https://github.com/rod409/mmdetection3d.git -b bevonnx /mmdetection3d \
     && cd /mmdetection3d \
     && python -m pip install --no-cache-dir -e .
 
 #RUN pip install einops fvcore seaborn iopath==0.1.9 timm==0.6.13  typing-extensions==4.5.0 pylint ipython==8.12  numpy==1.19.5 matplotlib==3.5.2 numba==0.48.0 pandas==1.4.4 scikit-image==0.19.3 setuptools==59.5.0
 RUN python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
 
+RUN pip install onnx==1.17.0
+RUN pip install onnxruntime==1.12.0
+RUN pip install numpy==1.21.0
 RUN git clone https://github.com/fundamentalvision/BEVFormer.git
 WORKDIR /BEVFormer
-
-#tkinter
-
