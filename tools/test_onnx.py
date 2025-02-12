@@ -4,11 +4,11 @@
 #  Modified by Zhiqi Li
 # ---------------------------------------------
 import sys
+sys.path.insert(0, '/research/BEVFormer')
 import argparse
 import mmcv
 import os
 import torch
-import torchviz
 import warnings
 from mmcv import Config, DictAction
 from mmcv.cnn import fuse_conv_bn
@@ -25,14 +25,14 @@ from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
 
-import onnx
+#import onnx
 import onnxruntime as ort
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
     parser.add_argument('config', help='test config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('checkpoint', help='onnx file')
     parser.add_argument('--out', help='output result file in pickle format')
     parser.add_argument(
         '--fuse-conv-bn',
@@ -233,13 +233,13 @@ def main():
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
-    checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
+    #checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if args.fuse_conv_bn:
         model = fuse_conv_bn(model)
 
     # old versions did not save class info in checkpoints, this walkaround is
     # for backward compatibility
-    if 'CLASSES' in checkpoint.get('meta', {}):
+    '''if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
         model.CLASSES = dataset.CLASSES
@@ -248,7 +248,7 @@ def main():
         model.PALETTE = checkpoint['meta']['PALETTE']
     elif hasattr(dataset, 'PALETTE'):
         # segmentation dataset has `PALETTE` attribute
-        model.PALETTE = dataset.PALETTE
+        model.PALETTE = dataset.PALETTE'''
 
     modules = dict()
     for k, m in model.named_modules():
@@ -275,7 +275,7 @@ def main():
     if not distributed:
         # assert False
         model = MMDataParallel(model, device_ids=[0])
-        ort_sess = ort.InferenceSession('/home/rod/Documents/research/BEVFormer/bevformer.onnx')
+        ort_sess = ort.InferenceSession(args.checkpoint)
         input_img_name = ort_sess.get_inputs()[0].name
         input_prev_bev_name = ort_sess.get_inputs()[1].name
         input_use_prev_bev_name = ort_sess.get_inputs()[2].name

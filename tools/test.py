@@ -4,6 +4,7 @@
 #  Modified by Zhiqi Li
 # ---------------------------------------------
 import sys
+sys.path.insert(0, '/research/BEVFormer')
 import argparse
 import mmcv
 import os
@@ -26,7 +27,7 @@ import time
 import os.path as osp
 
 import onnx
-import onnxruntime as ort
+#import onnxruntime as ort
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -285,7 +286,7 @@ def main():
         item = data['img'][0].data[0].numpy()[0]
 
         ort_sess.run([output_name], {input_name: item})'''
-        model = MMDataParallel(model, device_ids=[0])
+        #model = MMDataParallel(model, device_ids=[0])
         #data = next(iter(data_loader))
         #img = data["img"][0].data[0]
         #img_metas = data["img_metas"][0].data[0]
@@ -343,7 +344,7 @@ def main():
                 lidar2img = torch.stack(img_metas[0]['lidar2img']).unsqueeze(0).to(torch.float32)
                 img = data["img"][0].data[0]
                 bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, img=img, prev_bev=prev_bev, use_prev_bev=use_prev_bev, lidar2img=lidar2img, can_bus=can_bus)
-                result = model.module.post_process(outputs_classes, outputs_coords, img_metas)
+                result = model.post_process(outputs_classes, outputs_coords, img_metas)
                 results.extend(result)
                 prev_bev = bev_embed
                 prev_frame_info["prev_pos"] = tmp_pos
