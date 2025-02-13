@@ -219,8 +219,7 @@ def main():
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=samples_per_gpu,
-        #workers_per_gpu=cfg.data.workers_per_gpu,
-        workers_per_gpu=0,
+        workers_per_gpu=cfg.data.workers_per_gpu,
         dist=distributed,
         shuffle=False,
         nonshuffler_sampler=cfg.data.nonshuffler_sampler,
