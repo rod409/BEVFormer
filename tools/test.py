@@ -247,21 +247,6 @@ def main():
         model.PALETTE = dataset.PALETTE
 
     modules = dict()
-    for k, m in model.named_modules():
-        for c1, c2 in m.named_children():
-            '''if c2._get_name() ==  'ModulatedDeformConv2dPack':
-                c3 = torch.nn.Conv2d(in_channels=c2.in_channels, out_channels=c2.out_channels, kernel_size=c2.kernel_size, stride=c2.stride, padding=c2.padding, dilation=c2.dilation, groups=c2.groups, bias=c2.bias)
-                c3.weight = c2.weight
-                c3.bias = c2.bias
-                c3.output_padding = c2.output_padding
-                setattr(m, c1, c3)'''
-            '''if c2._get_name() == 'MSDeformableAttention3D':
-                c3 = torch.nn.MultiheadAttention(c2.embed_dims, c2.num_heads, batch_first=c2.batch_first)
-                setattr(m, c1, c3)'''
-            '''if c2._get_name() == 'CustomMSDeformableAttention':
-                c3 = torch.nn.MultiheadAttention(c2.embed_dims, c2.num_heads, batch_first=c2.batch_first)
-                setattr(m, c1, c3)'''
-
     for k, m2 in modules.items():
         import re
         search = re.search('\.\d+\.', k)
@@ -269,41 +254,8 @@ def main():
             eval('model.' + k[:search.start(0)] + '[' + k[search.start(0)+1 : search.end(0)-1] + ']').__setattr__(k[search.end(0):], m2)
 
     if not distributed:
-        # assert False
-        '''backbone = onnx.load('bevformer_small_epoch_24_conv2d_backbone.onnx')
-        neck = onnx.load('bevformer_small_epoch_24_conv2d_neck.onnx')
-        layer0 = onnx.load('layer0.onnx')
-        import pdb
-        pdb.set_trace()
-        onnx_model = onnx.compose.merge_models(backbone, neck, [(backbone.graph.output[0].name, neck.graph.input[0].name)])
-        onnx.checker.check_model(onnx_model)
-        ort_sess = ort.InferenceSession(onnx_model.SerializeToString())
-        input_name = ort_sess.get_inputs()[0].name
-        output_name = ort_sess.get_outputs()[0].name
-        data = next(iter(data_loader))
-        item = data['img'][0].data[0].numpy()[0]
-
-        ort_sess.run([output_name], {input_name: item})'''
-        #model = MMDataParallel(model, device_ids=[0])
-        #data = next(iter(data_loader))
-        #img = data["img"][0].data[0]
-        #img_metas = data["img_metas"][0].data[0]
-        #image_metas = []
-        #for i in range(len(img_metas)):
-        #    lidar2img = [torch.from_numpy(l) for l in img_metas[i]['lidar2img']]
-            #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
-        #    image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': torch.from_numpy(img_metas[i]['can_bus'])})
-        #import pdb
-        #pdb.set_trace()
-        #model(return_loss=False, rescale=True, **data)
-        #model.forward = model.forward_test
-        #model.eval()
-        #model([image_metas], [img])
-        #torch.onnx.export(model, ([image_metas], [img]), 'bevformer.onnx', verbose=True, opset_version=16, dynamic_axes=None)
-        #y = model(return_loss=False, rescale=True, **data)
-        #torchviz.make_dot(y[0]['pts_bbox']['boxes_3d'].tensor, params=dict(model.named_parameters())).render("model_graph", format="png")
-        #print('done')
-        #outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        model.to(device)
         model.eval()
         results = []
         prev_frame_info = {
@@ -312,7 +264,6 @@ def main():
             "prev_angle": 0,
         }
         prev_bev = torch.zeros(cfg.bev_h_ * cfg.bev_w_, 1, cfg._dim_)
-        #prev_bev = None
         dataset = data_loader.dataset
         prog_bar = mmcv.ProgressBar(len(dataset))
         for i, data in enumerate(data_loader):
@@ -322,7 +273,6 @@ def main():
                 tmp_angle = (img_metas[0]['can_bus'][-1]).clone()
                 if img_metas[0]["scene_token"] != prev_frame_info["scene_token"]:
                     use_prev_bev = torch.tensor(0.0)
-                    #prev_bev = None
                     img_metas[0]["can_bus"][-1] = 0
                     img_metas[0]["can_bus"][:3] = 0
                 else: 
@@ -330,18 +280,10 @@ def main():
                     img_metas[0]["can_bus"][:3] -= prev_frame_info["prev_pos"]
                     img_metas[0]["can_bus"][-1] -= prev_frame_info["prev_angle"]
                 prev_frame_info["scene_token"] = img_metas[0]["scene_token"]
-                '''if i == 0:
-                    img = data["img"][0].data[0]
-                    image_metas = []
-                    for i in range(len(img_metas)):
-                        lidar2img = [l for l in img_metas[i]['lidar2img']]
-                        #img_shape = [torch.from_numpy(s) for s in kwargs['img_metas'][i]['img_shape']]
-                        image_metas.append({'scene_token': img_metas[i]['scene_token'],'lidar2img': lidar2img, 'img_shape': torch.tensor(img_metas[i]['img_shape']), 'can_bus': img_metas[i]['can_bus']})
-                    torch.onnx.export(model.module, (False, prev_bev,  use_prev_bev, [image_metas], [img]), 'bevformer.onnx', verbose=True, opset_version=16, dynamic_axes=None)'''
-                can_bus = img_metas[0]["can_bus"].to(torch.float32)
                 lidar2img = torch.stack(img_metas[0]['lidar2img']).unsqueeze(0).to(torch.float32)
                 img = data["img"][0].data[0]
-                bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, img=img, prev_bev=prev_bev, use_prev_bev=use_prev_bev, lidar2img=lidar2img, can_bus=can_bus)
+                can_bus = img_metas[0]["can_bus"].to(torch.float32)
+                bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, img=img.to(device), prev_bev=prev_bev.to(device), use_prev_bev=use_prev_bev.to(device), lidar2img=lidar2img.to(device), can_bus=can_bus.to(device))
                 result = model.post_process(outputs_classes, outputs_coords, img_metas)
                 results.extend(result)
                 prev_bev = bev_embed
