@@ -24,13 +24,14 @@ docker build -t bevonnx .
 
 Run the container and mount the directory containing the data along with the pth and onnx checkpoints
 ```
-docker run -v <path to NuScenes dataset>:/BEVFormer/data --ipc=host -it bevonnx
+docker run -v <path to NuScenes dataset>:/BEVFormer/data/nuscenes --ipc=host -it bevonnx
 ```
 
 ## Export to ONNX and ONNX inference
-Export the model to ONNX. This will generate a bevformer.onnx file.
+Export the model to ONNX. This will generate a bevformer.onnx file. We will need to disable any CUDA usage for the export.
 ```
-python tools/export_onnx.py projects/configs/bevformer/bevformer_tiny.py ./data/bevformer_tiny_epoch_24.pth --eval bbox
+export CUDA_VISIBLE_DEVICES=""
+python tools/export_onnx.py projects/configs/bevformer/bevformer_tiny.py ./data/nuscenes/bevformer_tiny_epoch_24.pth --eval bbox
 ```
 Perform inference with the onnx graph.
 ```
