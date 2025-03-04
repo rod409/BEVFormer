@@ -23,6 +23,7 @@ from projects.mmdet3d_plugin.bevformer.apis.test import custom_multi_gpu_test
 from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
+import pickle
 
 #import onnx
 import onnxruntime as ort
@@ -290,6 +291,8 @@ def main():
         #prev_bev = None
         dataset = data_loader.dataset
         prog_bar = mmcv.ProgressBar(len(dataset))
+        onnx_output = []
+        #onnx_input = []
         for i, data in enumerate(data_loader):
             with torch.no_grad():
                 img_metas = data["img_metas"][0].data[0]
@@ -323,6 +326,8 @@ def main():
                     input_lidar2img_name: to_numpy(lidar2img),
                     }
                 result = ort_sess.run(None, input_data)
+                #onnx_input.append(input_data)
+                onnx_output.append(result)
                 bev_embed = torch.from_numpy(result[0])
                 outputs_classes = torch.from_numpy(result[1])
                 outputs_coords = torch.from_numpy(result[2])
@@ -335,6 +340,12 @@ def main():
             for _ in range(batch_size):
                 prog_bar.update()
         outputs = results
+        #with open('onnx_input.pkl', 'wb') as f:
+        #    pickle.dump(onnx_input, f)
+        with open('data/onnx_output.pkl', 'wb') as f:
+            pickle.dump(onnx_output, f)
+        with open('data/post_process.pkl', 'wb') as f:
+            pickle.dump(outputs, f)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
