@@ -23,6 +23,7 @@ from projects.mmdet3d_plugin.bevformer.apis.test import custom_multi_gpu_test
 from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
+from mmdet3d.core import bbox3d2result
 
 #import onnx
 import onnxruntime as ort
@@ -327,7 +328,12 @@ def main():
                 outputs_classes = torch.from_numpy(result[1])
                 outputs_coords = torch.from_numpy(result[2])
                 result = model.module.post_process(outputs_classes, outputs_coords, img_metas)
-                results.extend(result)
+                result_list = []
+                for bboxes, scores, labels in result:
+                    code_size = bboxes.shape[-1]
+                    bboxes = img_metas[0]['box_type_3d'](bboxes, code_size)
+                    result_list.append(bbox3d2result(bboxes, scores, labels))
+                results.extend(result_list)
                 prev_bev = bev_embed
                 prev_frame_info["prev_pos"] = tmp_pos
                 prev_frame_info["prev_angle"] = tmp_angle

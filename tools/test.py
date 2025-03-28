@@ -23,7 +23,7 @@ from projects.mmdet3d_plugin.bevformer.apis.test import custom_multi_gpu_test
 from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
-
+from mmdet3d.core import bbox3d2result
 import onnx
 #import onnxruntime as ort
 
@@ -284,7 +284,12 @@ def main():
                 can_bus = img_metas[0]["can_bus"].to(torch.float32)
                 bev_embed, outputs_classes, outputs_coords = model(return_loss=False, rescale=True, img=img.to(device), prev_bev=prev_bev.to(device), use_prev_bev=use_prev_bev.to(device), lidar2img=lidar2img.to(device), can_bus=can_bus.to(device))
                 result = model.post_process(outputs_classes, outputs_coords, img_metas)
-                results.extend(result)
+                result_list = []
+                for bboxes, scores, labels in result:
+                    code_size = bboxes.shape[-1]
+                    bboxes = img_metas[0]['box_type_3d'](bboxes, code_size)
+                    result_list.append(bbox3d2result(bboxes, scores, labels))
+                results.extend(result_list)
                 prev_bev = bev_embed
                 prev_frame_info["prev_pos"] = tmp_pos
                 prev_frame_info["prev_angle"] = tmp_angle

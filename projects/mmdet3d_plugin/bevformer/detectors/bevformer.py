@@ -287,24 +287,8 @@ class BEVFormer(MVXTwoStageDetector):
             img_feats, can_bus, lidar2img, prev_bev, use_prev_bev=use_prev_bev, image_shape=image_shape, rescale=rescale)
         print(datetime.now() - t)
         return outs['bev_embed'], outs['all_cls_scores'], outs['all_bbox_preds']
-    
-    def get_bboxes(self, outs, img_metas, rescale=False):
-        bbox_list = self.pts_bbox_head.get_bboxes(
-            outs, img_metas, rescale=rescale)
-        bbox_results = [
-            bbox3d2result(bboxes, scores, labels)
-            for bboxes, scores, labels in bbox_list
-        ]
-        return outs['bev_embed'], bbox_results
-    
 
     def post_process(self, outputs_classes, outputs_coords, img_metas):
         dic = {"all_cls_scores": outputs_classes, "all_bbox_preds": outputs_coords}
         result_list = self.pts_bbox_head.get_bboxes(dic, img_metas, rescale=True)
-
-        return [
-            {
-                "pts_bbox": bbox3d2result(bboxes, scores, labels)
-                for bboxes, scores, labels in result_list
-            }
-        ]
+        return result_list
