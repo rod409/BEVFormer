@@ -13,9 +13,9 @@ from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 import pickle
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description='MMDet test (and eval) a model')
+    parser = argparse.ArgumentParser(description='determine consequutive frames in nuscenes')
     parser.add_argument('config', help='test config file path')
+    parser.add_argument('--train', help='scan the train set', default=False, action='store_true')
     args = parser.parse_args()
     return args
 
@@ -53,7 +53,10 @@ def main():
                 plg_lib = importlib.import_module(_module_path)
 
     # build the dataloader
-    dataset = build_dataset(cfg.data.test)
+    if args.train:
+        dataset = build_dataset(cfg.data.train)
+    else:
+        dataset = build_dataset(cfg.data.test)
     # from projects.mmdet3d_plugin.datasets.nuscenes_dataset import CustomNuScenesDataset
     # dataset = CustomNuScenesDataset(**cfg.data.test.copy())
     data_loader = build_dataloader(
@@ -75,20 +78,30 @@ def main():
     scene_start = []
     for i, data in enumerate(data_loader):
         with torch.no_grad():
-            img_metas = data["img_metas"][0].data[0]
+            if args.train:
+                img_metas = data["img_metas"].data[0][0]
+            else:
+                img_metas = data["img_metas"][0].data[0]
             if img_metas[0]["scene_token"] != prev_scene_token:
                 scene_start.append(i)
             prev_scene_token = img_metas[0]["scene_token"]
     scene_start.append(len(dataset))
-    with open('data/scene_starts.pkl', 'wb') as f:
+    scene_starts_file = 'scene_starts'
+    scene_lengths_file = 'scene_lengths'
+    if args.train:
+        scene_starts_file = 'train_' + scene_starts_file
+        scene_lengths_file = 'train_' + scene_lengths_file
+    with open('data/' + scene_starts_file + '.pkl', 'wb') as f:
         pickle.dump(scene_start, f)
+    with open('data/' + scene_starts_file + '.txt', 'w') as file:
+        file.write('\n'.join([str(x) for x in scene_start]))
     scene_lengths = []
     for i in range(len(scene_start)-1):
         length = scene_start[i+1]-scene_start[i]
         scene_lengths.append(length)
-    with open('data/scene_lengths.pkl', 'wb') as f:
+    with open('data/' + scene_lengths_file + '.pkl', 'wb') as f:
         pickle.dump(scene_lengths, f)
-    with open('data/scene_lengths.txt', 'w') as file:
+    with open('data/' + scene_lengths_file + '.txt', 'w') as file:
         file.write('\n'.join([str(x) for x in scene_lengths]))
 if __name__ == '__main__':
     main()
